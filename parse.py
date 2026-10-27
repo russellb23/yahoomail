@@ -2,17 +2,24 @@
 
 import json
 import glob
-
-from bs4 import BeautifulSoup as bs
+import re
 
 files = glob.glob("./../../../documents/yahoomail/jsons/*.json")
 
-def is_html(text: str): 
-    soup = bs(text, 'html.parser')
-    if len(soup.find_all()) > 0:
-        return True
-    else:
-        return False
+
+def is_html(text):
+    """
+     Check if the given text contains HTML code using only regex.
+     Returns True if HTML tags are detected, False otherwise.
+    """
+    if not isinstance(text, str) or not text.strip():
+        return False  # Invalid or empty input
+    # Regex pattern to detect common HTML tags
+    html_tag_pattern = re.compile(
+        r"<([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>(.*?)</\1>|<([a-zA-Z][a-zA-Z0-9]*)\b[^>]*/?>",
+        re.DOTALL
+    )
+    return bool(html_tag_pattern.search(text))
 
 
 for file in files:
