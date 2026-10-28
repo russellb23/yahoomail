@@ -7,7 +7,7 @@ import os
 from email.parser import BytesParser
 from email import policy
 
-# from bs4 import BeautifulSoup as bs
+from bs4 import BeautifulSoup as bs
 
 files_ = glob.glob("./../../../documents/yahoomail/inbox/*")
 files = sorted(files_)
@@ -60,25 +60,11 @@ def get_email_body(msg):
         return msg.get_content()
 
 
-for file in files:
-    try:
-        email = parse_email_file(file)
-        print(f"===== E-Mail Meta-data =====")
-        for k,v in email.items():
-            if k != 'Body':
-                print(f"{k}: {v}")
-        print(f"===== E-Mail Body =====")
-        print(f"{re.sub("\n\s*\n", "\n",email['Body'])}")
-    except Exception as err:
-        print(f"Failed: {err}")
-
-
-
-
-    """
 def is_html(text):
+    """
      Check if the given text contains HTML code using only regex.
      Returns True if HTML tags are detected, False otherwise.
+    """
     if not isinstance(text, str) or not text.strip():
         return False  # Invalid or empty input
     # Regex pattern to detect common HTML tags
@@ -90,11 +76,31 @@ def is_html(text):
 
 
 def get_text_from_html(text):
+    """
     Extract text from html. Returns empty string if no text is supplied
+    """
     if not isinstance(text, str) or not text.strip():
         return " "
     else:
         soup = bs(text, 'html.parser')
         data = soup.get_text()
         return re.sub(r"\n\s*\n", "\n", data)
-        """
+
+
+for file in files:
+    try:
+        email = parse_email_file(file)
+        print(f"===== E-Mail Meta-data =====")
+        for k,v in email.items():
+            if k != 'Body':
+                print(f"{k}: {v}")
+        print(f"===== E-Mail Body =====")
+        if is_html(email['Body']):
+            print(f"{re.sub("\n\s*\n", "\n", get_text_from_html(email['Body']))}")
+        else:
+            print(f"{re.sub("\n\s*\n", "\n", email['Body'])}")
+    except Exception as err:
+        print(f"Failed: {err}")
+
+
+
