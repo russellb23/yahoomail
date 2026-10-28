@@ -4,6 +4,8 @@ import json
 import glob
 import re
 
+from bs4 import BeautifulSoup as bs
+
 files = glob.glob("./../../../documents/yahoomail/jsons/*.json")
 
 
@@ -21,6 +23,17 @@ def is_html(text):
     )
     return bool(html_tag_pattern.search(text))
 
+def get_text_from_html(text):
+    """
+    Extract text from html
+    """
+    if not isinstance(text, str) or not text.strip():
+        return " "
+    else:
+        soup = bs(text, 'html.parser')
+        data = soup.get_text()
+        return re.sub(r"\n\s*\n", "\n", data)
+
 
 for file in files:
     with open(file, "r") as f:
@@ -30,15 +43,16 @@ for file in files:
             print(f"Message: No e-mail body")
         else:
             if is_html(data['body']):
-                # print(f"IT IS HTML TEXT")
-                pass
+                print(f"Body: {get_text_from_html(data['body'])}")
             else:
                 # print(f"Body: {data['body']}")
                 # print(f"{'='*10}\t{f}")
+                print(f"{'='*30}")
                 if 'x-originating-ip' in data.keys():
                     print(f"From: {data['from'][0][1]}\nIP: {data['x-originating-ip']}\n")
                 else:
                     print(f"From: {data['from']}")
+                print(f"{'='*30}")
         """
 
                 print(f"{'='*30}")
