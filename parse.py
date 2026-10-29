@@ -75,17 +75,18 @@ def is_html(text):
     return bool(html_tag_pattern.search(text))
 
 
-def get_text_from_html(text):
+def get_text_from_html(html):
     """
     Extract text from html. Returns empty string if no text is supplied
     """
-    if not isinstance(text, str) or not text.strip():
+    if not isinstance(html, str) or not html.strip():
         return " "
     else:
-        soup = bs(text, 'html.parser')
+        soup = bs(html, 'html.parser')
         data = soup.get_text()
         return re.sub(r"\n\s*\n", "\n", data)
 
+"""
 
 for file in files:
     try:
@@ -101,6 +102,4 @@ for file in files:
             print(f"{re.sub("\n\s*\n", "\n", email['Body'])}")
     except Exception as err:
         print(f"Failed: {err}")
-
-
-
+"""
