@@ -86,20 +86,3 @@ def get_text_from_html(html):
         data = soup.get_text()
         return re.sub(r"\n\s*\n", "\n", data)
 
-"""
-
-for file in files:
-    try:
-        email = parse_email_file(file)
-        print(f"===== E-Mail Meta-data =====")
-        for k,v in email.items():
-            if k != 'Body':
-                print(f"{k}: {v}")
-        print(f"===== E-Mail Body =====")
-        if is_html(email['Body']):
-            print(f"{re.sub("\n\s*\n", "\n", get_text_from_html(email['Body']))}")
-        else:
-            print(f"{re.sub("\n\s*\n", "\n", email['Body'])}")
-    except Exception as err:
-        print(f"Failed: {err}")
-"""
