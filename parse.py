@@ -86,3 +86,11 @@ def get_text_from_html(html):
         data = soup.get_text()
         return re.sub(r"\n\s*\n", "\n", data)
 
+def clean_text_from_body(threaded_text):
+    """
+    Remove threaded replies from the content
+    Remove lines that start with ">"
+    """
+    cleaned_body = re.sub(r'>.*(?:\n|$)', '', threaded_text, flags=re.MULTILINE)
+    return cleaned_body
+
