@@ -34,13 +34,13 @@ email_categories = [
         ]
 """
 email_categories = [
-    "Newsletter",
-    "Personal email",
-    "Marketing advertisement",
-    "Social media notification",
-    "Support communication",
-    "Discussion thread",
-    "Promotional advertisement"
+    "newsletter",
+    "personal correspondence",
+    "marketing email",
+    "social media notification",
+    "technical support request",
+    "group discussion",
+    "sales promotion"
 ]
 
 def classify_email(subject, body):
@@ -48,10 +48,15 @@ def classify_email(subject, body):
     Classify e-mail into any one the specified category using subject line and
     first 500 characters of e-mail body
     """
-    email = f"{subject} {body[:2000]}"
+    email = f"""SUBJECT: 
+    {subject} 
+    
+    BODY:
+    {body[:2000]}"""
 
     result = email_classifier(email, email_categories, \
-                              hypothesis_template="This email is a {}.")
+                              hypothesis_template="This email is a {}.", \
+                              multi_label=False)
     # print(f"RESULT: {result}")
 
     return {
@@ -63,6 +68,13 @@ def classify_email(subject, body):
 classified = []
 confidence = []
 from_addrs = []
+
+patterns = [
+        "If you no longer wish to recieve",
+        "unsubscribe",
+        "update your contact information",
+        "copyright"
+        ]
 
 for file in files[:1000]:
     try:
@@ -94,7 +106,7 @@ for file in files[:1000]:
     except Exception as err:
         print(f"Failed: {err}")
 
-with open("output_2000_ctx_new_classes_adv_only_gt_0_5.csv", "w", newline='\n') as fp:
+with open("output_2000_ctx_new_classes_adv_only_gt_0_5_subject.csv", "w", newline='\n') as fp:
     writer = csv.writer(fp)
     writer.writerow(['From address', 'Class', 'Confidence'])
     for item1, item2, item3 in zip(from_addrs, classified, confidence):
