@@ -23,27 +23,24 @@ email_classifier = pipeline(
         model=model_path,
         device=0 if T.cuda.is_available() else -1)
 
-"""
-email_categories = [
-        "Product or Sales promotion",
-        "Newsletter",
-        "Advertisement",
-        "Personal communication",
-        "Group communication",
-        "Social Media update"
+stage_I_categories = [
+    "bulk-generated email sent by an organization or service",
+    "individually written email from a person",
         ]
-"""
-email_categories = [
-    "newsletter",
-    "personal correspondence",
-    "marketing email",
-    "social media notification",
-    "technical support request",
-    "group discussion",
-    "sales promotion"
-]
 
-def classify_email(subject, body):
+stage_II_automated = [
+        "newsletter",
+        "marketing email",
+        "social media notification",
+        "sales promotion",
+        ]
+
+stage_II_human = [
+        "personal correspondence",
+        "group discussion",
+        ]
+
+def classify_email(subject, body, email_categories):
     """
     Classify e-mail into any one the specified category using subject line and
     first 500 characters of e-mail body
@@ -55,8 +52,8 @@ def classify_email(subject, body):
     {body[:2000]}"""
 
     result = email_classifier(email, email_categories, \
-                              hypothesis_template="This email is a {}.", \
-                              multi_label=False)
+            hypothesis_template="This e-mail should be categorized as {}.", \
+            multi_label=False)
     # print(f"RESULT: {result}")
 
     return {
@@ -73,8 +70,13 @@ patterns = [
         "If you no longer wish to recieve",
         "unsubscribe",
         "update your contact information",
-        "copyright"
+        "copyright",
+        "Customer service",
+        "Beowulf mailing list",
+        "Rakuten",
+        "insideHPC"
         ]
+
 
 for file in files[:1000]:
     try:
@@ -88,25 +90,57 @@ for file in files[:1000]:
         print(f" ===== E-mail Body ===== ")
         txt_frm_html = get_text_from_html(email['Body'])
         if is_html(email['Body']):
-            category = classify_email(email['Subject'], clean_text_from_body(txt_frm_html))
-            classified.append(category['category'])
-            confidence.append(category['confidence'])
+            body_ = re.sub("\n\\s*\n", "\n", clean_text_from_body(txt_frm_html))
+            body = body_
+            for p in patterns:
+                idx = body_.lower().find(p.lower())
+                if idx != -1:
+                    body = body_[:idx]
+                    break
+            category = classify_email(email['Subject'], body, \
+                    stage_I_categories)
+            delta = category['all_scores'][stage_I_categories[0]]- \
+            category['all_scores'][stage_I_categories[1]]
+            if category['category'] == stage_I_categories[0] and delta < 0.15:
+                categ = classify_email(email['Subject'], body, \
+                                       stage_II_automated)
+                classified.append(categ['category'])
+                confidence.append(categ['confidence'])
+            elif category['category'] == stage_I_categories[1] and delta < 0.15:
+                categ = classify_email(email['Subject'], body, \
+                        stage_II_human)
+                classified.append(categ['category'])
+                confidence.append(categ['confidence'])
             print(f"Classification details: {category}")
             print(f"{'$'*50}")
-            print(f"{re.sub("\n\\s*\n", "\n", clean_text_from_body(txt_frm_html))}")
+            print(f"{body}")
         else:
-            category = classify_email(email['Subject'], \
-                    clean_text_from_body(email['Body']))
-            classified.append(category['category'])
-            confidence.append(category['confidence'])
+            body_ = re.sub("\n\\s*\n", "\n", clean_text_from_body(txt_frm_html))
+            body = body_
+            for p in patterns:
+                idx = body_.lower().find(p.lower())
+                if idx != -1:
+                    body = body_[:idx]
+                    break
+            category = classify_email(email['Subject'], body, \
+                                      stage_I_categories )
+            if category['category'] == "automated email":
+                categ = classify_email(email['Subject'], body, \
+                        stage_II_automated)
+                classified.append(categ['category'])
+                confidence.append(categ['confidence'])
+            elif category['category'] == "human written email":
+                categ = classify_email(email['Subject'], body, stage_II_human)
+                classified.append(categ['category'])
+                confidence.append(categ['confidence'])
             print(f"Classification details: {category}")
             print(f"{'$'*50}")
-            print(f"{re.sub("\n\\s*\n", "\n", clean_text_from_body(email['Body']))}")
+            print(f"{body}")
         print(f" ===== ===== ===== ")
     except Exception as err:
         print(f"Failed: {err}")
 
-with open("output_2000_ctx_new_classes_adv_only_gt_0_5_subject.csv", "w", newline='\n') as fp:
+with open("multi_statge.csv", "w", newline='\n') as fp:
     writer = csv.writer(fp)
     writer.writerow(['From address', 'Class', 'Confidence'])
     for item1, item2, item3 in zip(from_addrs, classified, confidence):
@@ -114,4 +148,3 @@ with open("output_2000_ctx_new_classes_adv_only_gt_0_5_subject.csv", "w", newlin
             writer.writerow([item1, item2, item3])
 
     # writer.writerow(zip(from_addrs, classified))
-
