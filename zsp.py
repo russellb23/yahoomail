@@ -11,6 +11,7 @@ module_path = os.path.abspath("../")
 sys.path.insert(0, module_path)
 
 from parse import *
+from database import *
 
 files_ = glob.glob("./../../../documents/yahoomail/inbox/*")
 files = sorted(files_) # For consistent comparison
@@ -44,11 +45,12 @@ email_categs = [
         "Personal correspondence",
         "Discussion forum",
         "Newsletter",
-        "Marketing promotion",
+        "Sale promotion",
         "Account notification",
         "socialmedia communication",
         "Job or career communication",
-        "computer technology"
+        "computer technology",
+        "Travel or photography"
         ]
 
 def classify_email(subject, body, email_categories):
@@ -56,40 +58,38 @@ def classify_email(subject, body, email_categories):
     Classify e-mail into any one the specified category using subject line and
     first 500 characters of e-mail body
     """
-    email = f"""SUBJECT: 
-    {subject} 
+    try: 
+        email = f"""SUBJECT: 
+        {subject} 
     
-    BODY:
-    {body[:2000]}"""
+        BODY:
+        {body[:2000]}"""
 
-    result = email_classifier(email, email_categories, \
+        result = email_classifier(email, email_categories, \
             hypothesis_template="The context of the email is {}.", \
             multi_label=False)
-    # print(f"RESULT: {result}")
+        # print(f"RESULT: {result}")
 
-    return {
+        return {
             'category': result['labels'][0],
             'confidence': result['scores'][0],
             'all_scores': dict(zip(result['labels'], result['scores']))
             }
+    except Exception as err:
+        print(f"Failed: {err}")
 
 classified = []
 confidence = []
 from_addrs = []
 
-patterns = [
-        "If you no longer wish to recieve",
-        "unsubscribe",
-        "update your contact information",
-        "copyright",
-        "Customer service",
-        "Beowulf mailing list",
-        "Rakuten",
-        "insideHPC"
-        ]
+
+try:
+    create_table()
+except OSError as e:
+    print(f"Failed creating table: {e}")
 
 
-for file in files:
+for idx, file in enumerate(files[:10]):
     try:
         email = parse_email_file(file)
         print(f" ===== E-mail Meta-data ===== ")
@@ -99,38 +99,35 @@ for file in files:
                 if k == 'From':
                     from_addrs.append(v)
         print(f" ===== E-mail Body ===== ")
-        txt_frm_html = get_text_from_html(email['Body'])
         if is_html(email['Body']):
-            body_ = re.sub("\n\\s*\n", "\n", clean_text_from_body(txt_frm_html))
-            body = body_
-
-            # for p in patterns:
-            #     idx = body_.lower().find(p.lower())
-            #     if idx != -1:
-            #         body = body_[:idx]
-            #         break
+            txt_frm_html = get_text_from_html(email['Body'])
+            cleaned_text_body = clean_text_from_body(txt_frm_html)
+            body = re.sub("\n\\s*\n", "\n", cleaned_text_body)
             category = classify_email(email['Subject'], body, \
                     email_categs)
             classified.append(category['category'])
             confidence.append(category['confidence'])
+            insert_email(email['From'], email['To'], category['category'],
+                         category['confidence'], 1, email['Cc'], email['Bcc'],
+                         email['Subject'], body, email['Date'])
             print(f"Classification details: {category}")
             print(f"{'$'*50}")
-            print(f"{body}")
+            print(f"ID: {idx}")
+            # print(f"{body}")
         else:
-            body_ = re.sub("\n\\s*\n", "\n", clean_text_from_body(txt_frm_html))
-            body = body_
-            # for p in patterns:
-            #     idx = body_.lower().find(p.lower())
-            #     if idx != -1:
-            #         body = body_[:idx]
-            #         break
+            cleaned_text_body = clean_text_from_body(email['Body'])
+            body = re.sub("\n\\s*\n", "\n", cleaned_text_body)
             category = classify_email(email['Subject'], body, \
                                       email_categs )
             classified.append(category['category'])
             confidence.append(category['confidence'])
+            insert_email(email['From'], email['To'], category['category'],
+                         category['confidence'], 1, email['Cc'], email['Bcc'],
+                         email['Subject'], body, email['Date'])
             print(f"Classification details: {category}")
             print(f"{'$'*50}")
-            print(f"{body}")
+            print(f"ID: {idx}")
+            # print(f"{body}")
         print(f" ===== ===== ===== ")
     except Exception as err:
         print(f"Failed: {err}")
