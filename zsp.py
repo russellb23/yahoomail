@@ -4,6 +4,7 @@ import os
 import glob
 import csv
 
+from tqdm import tqdm
 from transformers import pipeline
 import torch as T
 
@@ -16,7 +17,8 @@ from database import *
 files_ = glob.glob("./../../../documents/yahoomail/inbox/*")
 files = sorted(files_) # For consistent comparison
 
-model_path = "/home/russellb/.cache/huggingface/hub/models--facebook--bart-large-mnli/snapshots/d7645e127eaf1aefc7862fd59a17a5aa8558b8ce"
+# model_path = "/home/russellb/.cache/huggingface/hub/models--facebook--bart-large-mnli/snapshots/d7645e127eaf1aefc7862fd59a17a5aa8558b8ce"
+model_path = "MoritzLaurer/deberta-v3-large-zeroshot-v1.1-all-33"
 # model_path = "/home/russellb/.cache/huggingface/hub/models--distilbert--distilbert-base-uncased-finetuned-sst-2-english/snapshots/714eb0fa89d2f80546fda750413ed43d93601a13"
 # model_path = "/home/russellb/.cache/huggingface/hub/models--FacebookAI--roberta-large-mnli/snapshots/2a8f12d27941090092df78e4ba6f0928eb5eac98"
 email_classifier = pipeline(
@@ -42,28 +44,33 @@ stage_II_human = [
         ]
 
 email_categs = [
-        "Personal correspondence",
-        "Discussion forum",
-        "Newsletter",
-        "Sale promotion",
-        "Account notification",
-        "socialmedia communication",
-        "Job or career communication",
-        "computer technology",
-        "Travel or photography"
+    "Personal correspondence",
+    "Notifications from social media platforms such as facebook, twitter etc",
+    "Forum posts, discussions, and community notifications",
+    "Marketing emails, sales, offers, and advertisements",
+    "Unwanted emails, scams, and phishing attempts",
+    "System updates, security patches, and maintenance notices",
+    "Hardware, Software and Technology",
+    "Others"
         ]
 
-def classify_email(subject, body, email_categories):
+def classify_email(from_address, to_address, subject, body, email_categories):
     """
     Classify e-mail into any one the specified category using subject line and
     first 500 characters of e-mail body
     """
     try: 
-        email = f"""SUBJECT: 
+        email = f"""FROM:
+        {from_address}
+
+        TO:
+        {to_address}
+
+        SUBJECT: 
         {subject} 
     
         BODY:
-        {body[:2000]}"""
+        {body[:500]}"""
 
         result = email_classifier(email, email_categories, \
             hypothesis_template="The context of the email is {}.", \
@@ -89,7 +96,7 @@ except OSError as e:
     print(f"Failed creating table: {e}")
 
 
-for idx, file in enumerate(files[:10]):
+for file in tqdm(files[:1000]):
     try:
         email = parse_email_file(file)
         print(f" ===== E-mail Meta-data ===== ")
@@ -103,7 +110,10 @@ for idx, file in enumerate(files[:10]):
             txt_frm_html = get_text_from_html(email['Body'])
             cleaned_text_body = clean_text_from_body(txt_frm_html)
             body = re.sub("\n\\s*\n", "\n", cleaned_text_body)
-            category = classify_email(email['Subject'], body, \
+            body = re.sub(r'<.*?>', '', body)
+            body = re.sub(r'.*', '', body)
+            category = classify_email(email['From'], email['To'], \
+                                      email['Subject'], body, \
                     email_categs)
             classified.append(category['category'])
             confidence.append(category['confidence'])
@@ -111,13 +121,14 @@ for idx, file in enumerate(files[:10]):
                          category['confidence'], 1, email['Cc'], email['Bcc'],
                          email['Subject'], body, email['Date'])
             print(f"Classification details: {category}")
-            print(f"{'$'*50}")
-            print(f"ID: {idx}")
+            # print(f"{'$'*50}")
             # print(f"{body}")
         else:
             cleaned_text_body = clean_text_from_body(email['Body'])
             body = re.sub("\n\\s*\n", "\n", cleaned_text_body)
-            category = classify_email(email['Subject'], body, \
+            body = re.sub(r'<.*?>', '', body)
+            category = classify_email(email['From'], email['To'],
+                                      email['Subject'], body, \
                                       email_categs )
             classified.append(category['category'])
             confidence.append(category['confidence'])
@@ -125,14 +136,14 @@ for idx, file in enumerate(files[:10]):
                          category['confidence'], 1, email['Cc'], email['Bcc'],
                          email['Subject'], body, email['Date'])
             print(f"Classification details: {category}")
-            print(f"{'$'*50}")
-            print(f"ID: {idx}")
+            # print(f"{'$'*50}")
+            # print(f"ID: {idx}")
             # print(f"{body}")
-        print(f" ===== ===== ===== ")
+        # print(f" ===== ===== ===== ")
     except Exception as err:
         print(f"Failed: {err}")
 
-with open("single_statge_mnli_mod.csv", "w", newline='\n') as fp:
+with open("single_statge_deberta_500.csv", "w", newline='\n') as fp:
     writer = csv.writer(fp)
     writer.writerow(['From address', 'Class', 'Confidence'])
     for item1, item2, item3 in zip(from_addrs, classified, confidence):
